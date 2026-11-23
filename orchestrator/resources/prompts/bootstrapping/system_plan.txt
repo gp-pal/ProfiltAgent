@@ -1,0 +1,16 @@
+Output JSON plan only. No explanations.
+
+STEP-1 RECIPE (when domain is known):
+- goto https://{domain}
+- wait_for body (8000ms timeout)
+- collect same-origin iframes into save_as="iframes_html"
+- return raw links to save_as="links_raw" (limit 200)
+
+INTELLIGENT EXTRACTION NOTE:
+The system uses standard browser automation for content extraction and screenshot capture. Follow the standard recipe above.
+
+You must complete the JSON plan exactly as shown in the user message. Do not return the schema definition - return an actual plan instance that follows the schema.
+
+About page synonyms:
+LT: {{about_synonyms_lt}}
+EN: {{about_synonyms_en}}

@@ -1,0 +1,129 @@
+# The project name drives the compose project, container names and image names.
+# Set COMPOSE_PROJECT_NAME (and APP_NAME for the display name) in the root .env —
+# see .env.example — to rename the whole stack from one place. The root .env holds
+# stack-level values only; the application's own settings are in orchestrator/.env.
+name: ${COMPOSE_PROJECT_NAME:-profiltagent}
+
+# Stack wiring for the Laravel containers — only what docker itself decides
+# (service addresses, the runner's shared mount, the values shared with the runner).
+# Everything listed here OVERRIDES orchestrator/.env. Application settings and
+# secrets (LLM provider/model, ANTHROPIC_API_KEY, AGENT_API_KEY, registry DB, …)
+# are NOT passed from here: they live in orchestrator/.env, bind-mounted with the app.
+x-orchestrator-env: &orchestrator-env
+  APP_NAME: ${APP_NAME:-ProfiltAgent}
+  # Never leak config/stack traces in a deployment
+  APP_ENV: production
+  APP_DEBUG: "false"
+  RUNNER_BASE: http://browser_runner:8080
+  # Shared with browser_runner below, so it is set once in the root .env.
+  RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+  # Self-hosted SearXNG, reached over the docker network.
+  SEARXNG_URL: http://searxng:8080
+  # The runner's view of the shared runs volume (see browser_runner.volumes).
+  RUNS_DIR: /app/runs
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-profiltagent}-nginx
+    ports:
+      # nginx.conf only serves `listen 80;` (no TLS locally), so 443 is not
+      # published — it just collided with other local stacks on the host port.
+      - "80:80"
+    volumes:
+      - ./.deploy/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./orchestrator:/app
+    depends_on:
+      - php_orchestrator
+      - browser_runner
+    restart: always
+
+  php_orchestrator:
+    build:
+      context: .
+      dockerfile: .deploy/Dockerfile.orchestrator
+    image: ${COMPOSE_PROJECT_NAME:-profiltagent}-orchestrator
+    container_name: ${COMPOSE_PROJECT_NAME:-profiltagent}-orchestrator
+    ports:
+      # php-fpm; reached by nginx over the docker network — not host-exposed
+      - "127.0.0.1:9000:9000"
+    depends_on:
+      - browser_runner
+      - searxng
+    volumes:
+      - ./orchestrator:/app
+      - ./orchestrator/storage/app/private/runs:/app/storage/app/private/runs
+      - ./orchestrator/storage/logs:/app/storage/logs
+      - ./orchestrator/bootstrap/cache:/app/bootstrap/cache
+    environment: *orchestrator-env
+    working_dir: /app
+    restart: always
+
+  queue_worker:
+    build:
+      context: .
+      dockerfile: .deploy/Dockerfile.orchestrator
+    image: ${COMPOSE_PROJECT_NAME:-profiltagent}-orchestrator
+    container_name: ${COMPOSE_PROJECT_NAME:-profiltagent}-queue-worker
+    # Long-running worker that drains the database queue (e.g. CollectCompanyJob).
+    # --timeout matches the job's own 600s ceiling; --tries=1 so an expensive
+    # collect is never blind-retried.
+    command: php artisan queue:work --tries=1 --timeout=600 --sleep=3
+    depends_on:
+      - browser_runner
+      - searxng
+    volumes:
+      - ./orchestrator:/app
+      - ./orchestrator/storage/app/private/runs:/app/storage/app/private/runs
+      - ./orchestrator/storage/logs:/app/storage/logs
+      - ./orchestrator/bootstrap/cache:/app/bootstrap/cache
+    environment: *orchestrator-env
+    working_dir: /app
+    restart: always
+
+  browser_runner:
+    build:
+      context: .
+      dockerfile: .deploy/Dockerfile.runner
+    image: ${COMPOSE_PROJECT_NAME:-profiltagent}-runner
+    container_name: ${COMPOSE_PROJECT_NAME:-profiltagent}-runner
+    ports:
+      # Localhost-only: the runner is called by the orchestrator over the internal
+      # docker network; not exposed to the host network. RUNNER_HOST_PORT moves the
+      # host side when 8080 is already taken by another local stack.
+      - "127.0.0.1:${RUNNER_HOST_PORT:-8080}:8080"
+    volumes:
+      - ./orchestrator/resources/dsl:/app/dsl:ro
+      - ./orchestrator/storage/app/private/runs:/app/runs
+      - ./runner:/app/runner:ro
+    environment:
+      - NODE_ENV=production
+      - MAX_STEPS=30
+      # Shared secret required from the orchestrator (Bearer); empty disables auth.
+      - RUNNER_TOKEN=${RUNNER_TOKEN:-}
+      # Must match the runs volume mount above so screenshots land in the shared
+      # directory where the orchestrator (isStep1Satisfied) looks for them.
+      - RUNS_DIR=/app/runs
+      - STEALTH_MODE=true
+      - USER_AGENT=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+      - VIEWPORT_WIDTH=1920
+      - VIEWPORT_HEIGHT=1080
+      - TIMEZONE=Europe/Vilnius
+      - LOCALE=lt-LT
+    working_dir: /app
+    restart: always
+
+  searxng:
+    # Pinned by digest, not `latest`: an image refresh silently changed engine
+    # behaviour under us, and the news dimension depends on which engines answer.
+    # This is 2026.7.22+ef8f6470e, the build measured working on 2026-08-12.
+    image: searxng/searxng@sha256:854f239d5c181db9c4282cd0ffc1737a61232dd6ad0ea964028b96df17d7758a
+    container_name: ${COMPOSE_PROJECT_NAME:-profiltagent}-searxng
+    ports:
+      # Host 8888 -> container 8080 (browser_runner already uses host 8080).
+      - "127.0.0.1:8888:8080"
+    volumes:
+      - ./.deploy/searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8888/
+    restart: always

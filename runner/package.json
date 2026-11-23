@@ -1,0 +1,28 @@
+{
+  "name": "profiltagent-runner",
+  "version": "1.0.0",
+  "description": "Playwright-based browser runner for ProfiltAgent",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/markdown.test.js && node test/detectors.test.js && node test/locale.test.js && node test/consent.test.js && node test/extract-links-selector.test.js && node test/smoke.js && node test/markdown.endpoint.test.js && node test/run-challenge.test.js",
+    "test:markdown": "node test/markdown.test.js",
+    "test:detectors": "node test/detectors.test.js",
+    "test:locale": "node test/locale.test.js"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "axios": "^1.6.7",
+    "cheerio": "^1.0.0-rc.12",
+    "express": "^4.18.2",
+    "joplin-turndown-plugin-gfm": "^1.0.12",
+    "playwright": "^1.55.1",
+    "turndown": "^7.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "ProfiltAgent Team",
+  "license": "PolyForm-Noncommercial-1.0.0"
+}

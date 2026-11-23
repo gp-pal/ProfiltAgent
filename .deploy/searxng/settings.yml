@@ -1,0 +1,67 @@
+use_default_settings: true
+server:
+  secret_key: "profiltagent-searxng-local-secret-change-me"
+  limiter: false
+  image_proxy: false
+ui:
+  # The admin-facing interface. 'lt' IS one of SearXNG's UI locales.
+  default_locale: "lt"
+
+search:
+  formats:
+    - html
+    - json
+  # Left as 'auto' deliberately: Lithuanian is NOT among SearXNG's supported
+  # *search* languages — there is no Lithuanian row in searx/sxng_locales.py at
+  # all (verified against the running image), unlike German or Danish. Setting
+  # 'lt' here would be invalid. Lithuanian bias therefore comes from the query
+  # text and the `site:` filters aimed at .lt portals, which is the stronger
+  # lever anyway; the per-request 'language' param falls back gracefully.
+  default_lang: "auto"
+
+# The default `general` set ships only four real web engines (brave, duckduckgo,
+# google cse, startpage) alongside dictionaries and wikis. All four rate-limit or
+# CAPTCHA us under even modest automated use, and when they are suspended the news
+# dimension silently returns nothing. These additions spread the load across
+# engines with independent indexes and different limits, so one blocked provider
+# no longer empties a run.
+#
+# Only `general` engines are added: the news dimension queries that category
+# (a `site:delfi.lt` news-category query returns nothing, general returns plenty).
+engines:
+  # Dropped 2026-08-12. Measured over 4 spaced samples: only bing answers at all, and
+  # `site:` — which every news query is built on — returned 0 in every sample no matter
+  # which engine was asked. These three cost a request each and a wait each, and
+  # contributed nothing. bing stays because it is the one that answers.
+  - name: mojeek
+    disabled: true
+  - name: startpage
+    disabled: true
+  - name: brave
+    disabled: true
+  - name: bing
+    disabled: false
+  # Disabled 2026-08-11 after measurement: qwant was the single loudest failure
+  # source, 106 CAPTCHA errors in 40 minutes — more than duckduckgo (84) and about
+  # a third of all engine errors — while contributing nothing usable. Every one of
+  # those is a request SearXNG waits on before returning a shorter result list, so
+  # dropping it makes searches faster as well as quieter. mojeek/bing/yahoo carry
+  # the load; they were failing 6, 6 and 54 times over the same window.
+  - name: qwant
+    disabled: true
+  - name: yahoo
+    disabled: false
+
+# Upstream request behaviour. The default request_timeout is 2.0s (see
+# docs.searxng.org/admin/settings/settings_outgoing.html), and an engine that does not
+# answer inside it is simply dropped from the results — silently, with HTTP 200 and a
+# shorter list. Measured symptom: the identical `site:`-scoped query returned 10 results
+# one minute and 0 the next, which reads as "this company has no coverage".
+#
+# `site:`-scoped queries are the slow ones (the engine has to filter), and they are
+# exactly what the news dimension is built on, so the default cut them first.
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 12.0
+  # Retry an engine on an HTTP error before giving up on it for this search.
+  retries: 2

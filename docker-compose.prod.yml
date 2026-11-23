@@ -1,0 +1,29 @@
+# Example production override for a host that already runs a reverse proxy on :80/:443.
+# Apply on top of the base:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# - nginx: drop the host :80 binding (owned by the host's reverse proxy); expose only
+#   127.0.0.1:8090 for local/debug, and join the proxy's docker network so the proxy
+#   (and any other service on it) reaches `profiltagent-nginx` by service name.
+# - php_orchestrator: also join the shared network (allows direct access by service name).
+# - browser_runner: cap memory under the host's memory pressure (Chromium spikes).
+# Set SHARED_PROXY_NETWORK to the name of the existing external docker network.
+services:
+  nginx:
+    ports: !override
+      - "127.0.0.1:8090:80"
+    networks:
+      - default
+      - shared_proxy
+
+  php_orchestrator:
+    networks:
+      - default
+      - shared_proxy
+
+  browser_runner:
+    mem_limit: 1500m
+
+networks:
+  shared_proxy:
+    external: true
+    name: ${SHARED_PROXY_NETWORK:-shared_proxy}

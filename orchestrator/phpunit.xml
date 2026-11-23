@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         processIsolation="false"
+         stopOnFailure="false"
+         cacheDirectory=".phpunit.cache"
+         backupGlobals="false">
+    <testsuites>
+        <testsuite name="ProfiltAgent Tests">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">apps</directory>
+            <directory suffix=".php">tools</directory>
+            <directory suffix=".php">validation</directory>
+        </include>
+        <exclude>
+            <directory>vendor</directory>
+        </exclude>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="RUNS_DIR" value="runs_test"/>
+        <env name="LANGFUSE_ENABLED" value="false"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- Production uses the database store so counters (e.g. the SearXNG
+             throttle) are shared across the HTTP path and the queue worker. Unit
+             tests must not need a migrated cache table for that, so they get the
+             in-memory store. -->
+        <env name="CACHE_STORE" value="array"/>
+        <!-- Sources are mocked; a host must be set or the registry source reports itself unconfigured. -->
+        <env name="REGISTRY_DB_HOST" value="127.0.0.1"/>
+        <!-- Each Livewire/Filament page test mounts a full panel page and keeps roughly
+             4 MB that nothing frees for the rest of the run, so RequestConsoleTest alone
+             peaks near PHP's 128M default and the suite died with "Allowed memory size
+             exhausted" on the next test added to it. Set here rather than in a machine
+             php.ini so the documented command works everywhere. -->
+        <ini name="memory_limit" value="512M"/>
+    </php>
+</phpunit>

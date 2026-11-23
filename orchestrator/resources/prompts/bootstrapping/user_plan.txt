@@ -1,0 +1,20 @@
+{
+  "version": "1.0",
+  "meta": {
+    "task": "Step-1 homepage capture",
+    "company": "{{company.name}}",
+    "domain": "{{company.domain}}",
+    "stealth_mode": true,
+    "human_behavior": true
+  },
+  "actions": [
+    {"do": "goto", "url": "https://{{company.domain}}", "timeout_ms": 20000},
+    {"do": "wait_for", "selector": "body", "timeout_ms": 8000},
+    {"do": "screenshot_fullpage", "path": "{{screenshot_path}}"},
+    {"do": "extract_html", "selector": "body", "save_as": "main_html"},
+    {"do": "extract_markdown", "save_as": "main_md"},
+    {"do": "extract_iframe", "save_as": "iframes_html"},
+    {"do": "extract_links", "save_as": "links_raw", "limit": 200},
+    {"do": "return", "data": ["main_html", "main_md", "links_raw"]}
+  ]
+}

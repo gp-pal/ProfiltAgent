@@ -1,0 +1,65 @@
+profiltagent_policy:
+  version: "1.0"
+
+  limits:
+    max_steps: 30
+    max_timeout_ms: 20000
+    max_file_size_mb: 10
+    max_screenshot_size_mb: 5
+
+  security:
+    allowed_schemes:
+      - "https"
+      - "http"
+
+    blocked_domains:
+      - "localhost"
+      - "127.0.0.1"
+      - "0.0.0.0"
+      - "internal"
+      - "admin"
+
+    artifact_restrictions:
+      base_path: "runs/"
+      allowed_extensions:
+        - ".png"
+        - ".jpg"
+        - ".jpeg"
+        - ".csv"
+        - ".txt"
+        - ".md"
+        - ".json"
+
+      blocked_paths:
+        - "../"
+        - "..\\"
+        - "/etc/"
+        - "/var/"
+        - "/usr/"
+        - "C:\\"
+
+  tools:
+    search_ddg:
+      enabled: true
+      rate_limit_per_minute: 10
+      max_results: 50
+
+    files:
+      enabled: true
+      max_file_operations_per_run: 100
+
+  bot_challenges:
+    action: "stop_and_report"
+    detection_patterns:
+      - "cloudflare"
+      - "turnstile"
+      - "hcaptcha"
+      - "recaptcha"
+      - "access denied"
+      - "bot detected"
+
+  compliance:
+    respect_robots_txt: false
+    user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    request_delay_ms: 1000
+    max_concurrent_requests: 1

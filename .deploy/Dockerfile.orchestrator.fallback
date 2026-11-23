@@ -1,0 +1,74 @@
+# Alternative Dockerfile for network connectivity issues
+FROM php:8.3-fpm
+
+# Configure DNS and network settings for better connectivity
+RUN echo 'nameserver 8.8.8.8' > /etc/resolv.conf \
+    && echo 'nameserver 8.8.4.4' >> /etc/resolv.conf
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    wget \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Composer with fallback methods
+RUN curl -4 -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    || wget -O - https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Set working directory
+WORKDIR /app
+
+# Configure Composer for better network handling
+RUN composer config --global process-timeout 2000 \
+    && composer config --global repo.packagist composer https://packagist.org \
+    && composer config --global github-protocols https
+
+# Create fresh Laravel application with retries
+RUN for i in 1 2 3; do \
+        composer create-project laravel/laravel:^12.0 . --no-dev --prefer-dist --timeout=2000 && break || sleep 30; \
+    done
+
+# Copy custom application files
+COPY orchestrator/app ./app
+COPY orchestrator/config ./config
+COPY orchestrator/resources ./resources
+COPY orchestrator/routes ./routes
+COPY orchestrator/composer.json ./composer.json
+
+# Install custom dependencies with retries
+RUN for i in 1 2 3; do \
+        composer update --no-dev --optimize-autoloader --timeout=2000 && break || sleep 30; \
+    done
+
+# Copy artisan and bootstrap files
+COPY orchestrator/artisan ./artisan
+COPY orchestrator/bootstrap ./bootstrap
+
+# Create necessary directories
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && mkdir -p /app/runs \
+    && chmod -R 755 storage /app/runs
+
+# Generate Laravel key
+RUN php artisan key:generate --no-interaction
+
+# Optimize Laravel
+RUN php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache
+
+# Set permissions
+RUN chown -R www-data:www-data /app \
+    && chmod -R 755 /app \
+    && chmod -R 775 storage /app/runs
+
+EXPOSE 9000
+
+CMD ["php-fpm"]

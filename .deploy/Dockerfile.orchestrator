@@ -1,0 +1,77 @@
+FROM php:8.4-fpm
+
+# Install system dependencies. libicu-dev/libzip-dev back the intl/zip PHP
+# extensions, which composer.lock requires (symfony/* + laravel need them).
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libzip-dev \
+    libicu-dev \
+    zip \
+    unzip \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd intl zip \
+    && rm -rf /var/lib/apt/lists/*
+
+ # Install Composer directly from getcomposer.org with verification
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && chmod +x /usr/local/bin/composer \
+    && composer --version
+
+# Set working directory
+WORKDIR /app
+
+# Copy application files first
+COPY orchestrator/composer.json ./composer.json
+COPY orchestrator/composer.lock ./composer.lock
+
+# Install dependencies using composer install (more reliable than update)
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
+# Copy custom application files
+COPY orchestrator/app ./app
+COPY orchestrator/config ./config
+COPY orchestrator/routes ./routes
+
+# Copy artisan and bootstrap files
+COPY orchestrator/artisan ./artisan
+COPY orchestrator/bootstrap ./bootstrap
+
+# Optimize the autoloader. --no-scripts skips the post-autoload-dump hooks
+# (Laravel package:discover, filament:upgrade) which boot the app and need a
+# configured .env/APP_KEY that only exists at runtime; they run on first boot.
+RUN composer dump-autoload --optimize --no-scripts
+
+# Create necessary directories
+RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions storage/framework/views \
+    && mkdir -p /app/runs /app/runs/screenshots /app/runs/analysis \
+    && chmod -R 755 storage /app/runs
+
+# Create basic .env file to avoid database dependencies during build
+RUN echo "APP_NAME=\"ProfiltAgent\"" > .env \
+    && echo "APP_ENV=production" >> .env \
+    && echo "APP_KEY=" >> .env \
+    && echo "APP_DEBUG=false" >> .env \
+    && echo "LOG_CHANNEL=stderr" >> .env \
+    && echo "CACHE_DRIVER=file" >> .env \
+    && echo "SESSION_DRIVER=file" >> .env \
+    && echo "QUEUE_CONNECTION=sync" >> .env \
+    && echo "DB_CONNECTION=sqlite" >> .env \
+    && echo "DB_DATABASE=/tmp/database.sqlite" >> .env
+
+# Create temporary SQLite database file for build
+RUN touch /tmp/database.sqlite
+
+# Skip optimization that requires database
+# These will be handled at runtime when database is properly configured
+
+# Set permissions
+RUN chown -R www-data:www-data /app \
+    && chmod -R 755 /app \
+    && chmod -R 775 storage /app/runs
+
+EXPOSE 9000
+
+CMD ["php-fpm"]

@@ -1,0 +1,7 @@
+Validation errors found in your plan:
+{{errors_json}}
+
+Previous plan:
+{{last_plan}}
+
+Return a corrected plan JSON (same schema) that fixes these validation errors. No prose, JSON only.

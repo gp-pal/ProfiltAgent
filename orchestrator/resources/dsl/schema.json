@@ -1,0 +1,470 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProfiltAgent DSL Schema v1.0",
+  "description": "Schema with advanced scrolling, full-page screenshots, and human behavior simulation for LLM-generated web scraping plans",
+  "type": "object",
+  "required": ["version", "meta", "actions"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference (optional)"
+    },
+    "version": {
+      "type": "string",
+      "enum": ["1.0"],
+      "description": "DSL version with advanced capabilities"
+    },
+    "meta": {
+      "type": "object",
+      "required": ["task", "company"],
+      "properties": {
+        "task": {
+          "type": "string",
+          "description": "Description of the scraping task"
+        },
+        "company": {
+          "type": "string",
+          "description": "Target company name"
+        },
+        "domain": {
+          "type": ["string", "null"],
+          "description": "Target domain (optional)"
+        },
+        "stealth_mode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable stealth mode to avoid bot detection"
+        },
+        "human_behavior": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable human-like behavior patterns"
+        }
+      },
+      "additionalProperties": false
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 50,
+      "description": "Sequence of actions to perform",
+      "items": {
+        "type": "object",
+        "required": ["do"],
+        "properties": {
+          "do": {
+            "type": "string",
+            "enum": [
+              "goto",
+              "wait_for",
+              "click",
+              "type",
+              "press",
+              "dismiss_consent",
+              "scroll",
+              "scroll_to_bottom",
+              "scroll_progressive",
+              "random_delay",
+              "human_scroll",
+              "scroll_smart",
+              "extract_text",
+              "extract_attr",
+              "extract_html",
+              "extract_links",
+              "extract_iframe",
+              "extract_markdown",
+              "screenshot",
+              "screenshot_fullpage",
+              "screenshot_viewport",
+              "screenshot_element",
+              "return"
+            ],
+            "description": "Action to perform"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Target URL for navigation"
+          },
+          "selector": {
+            "type": "string",
+            "description": "CSS selector for element targeting"
+          },
+          "value": {
+            "type": "string",
+            "description": "Text value to type"
+          },
+          "key": {
+            "type": "string",
+            "description": "Key to press (e.g., 'Enter', 'Tab')"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000,
+            "description": "Timeout in milliseconds (extended for protected sites)"
+          },
+          "delta_y": {
+            "type": "integer",
+            "description": "Vertical scroll distance in pixels"
+          },
+          "scroll_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 3,
+            "description": "Number of progressive scrolls"
+          },
+          "delay_min": {
+            "type": "integer",
+            "minimum": 500,
+            "maximum": 5000,
+            "default": 1000,
+            "description": "Minimum delay in milliseconds"
+          },
+          "delay_max": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 10000,
+            "default": 3000,
+            "description": "Maximum delay in milliseconds"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^runs/",
+            "description": "Screenshot file path (must start with 'runs/')"
+          },
+          "capture_type": {
+            "type": "string",
+            "enum": ["fullpage", "viewport", "element"],
+            "default": "fullpage",
+            "description": "Screenshot capture type"
+          },
+          "attr": {
+            "type": "string",
+            "description": "HTML attribute name to extract"
+          },
+          "save_as": {
+            "type": "string",
+            "description": "Variable name to save extracted data"
+          },
+          "only_main_content": {
+            "type": "boolean",
+            "default": true,
+            "description": "Strip nav/footer/cookie/ads boilerplate before markdown conversion"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "Maximum number of items to extract"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Data keys to return"
+          },
+          "scroll_behavior": {
+            "type": "string",
+            "enum": ["smooth", "instant", "human"],
+            "default": "human",
+            "description": "Scrolling behavior pattern"
+          },
+          "wait_for_load": {
+            "type": "boolean",
+            "default": true,
+            "description": "Wait for page load after scroll"
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "goto"
+                }
+              }
+            },
+            "then": {
+              "required": ["url"],
+              "description": "Navigate to a URL. Use for initial page load or navigation."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "enum": ["wait_for", "click", "type", "press", "extract_text", "extract_attr", "extract_html"]
+                }
+              }
+            },
+            "then": {
+              "required": ["selector"],
+              "description": "Actions requiring element selection"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "scroll_to_bottom"
+                }
+              }
+            },
+            "then": {
+              "description": "Automatically scroll to bottom of page. Ideal for capturing full content."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "scroll_progressive"
+                }
+              }
+            },
+            "then": {
+              "description": "Perform multiple scrolls with random delays. Best for human-like behavior."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "scroll_smart"
+                }
+              }
+            },
+            "then": {
+              "description": "Intelligently scroll based on page height detection."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "screenshot_fullpage"
+                }
+              }
+            },
+            "then": {
+              "required": ["path"],
+              "description": "Capture entire page content including scrolled areas."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "screenshot_viewport"
+                }
+              }
+            },
+            "then": {
+              "required": ["path"],
+              "description": "Capture only current viewport area."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "screenshot_element"
+                }
+              }
+            },
+            "then": {
+              "required": ["path", "selector"],
+              "description": "Capture specific element only."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "random_delay"
+                }
+              }
+            },
+            "then": {
+              "description": "Add random delay between actions for human-like behavior."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "human_scroll"
+                }
+              }
+            },
+            "then": {
+              "description": "Perform natural human-like scrolling with variable speeds and pauses."
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "type"
+                }
+              }
+            },
+            "then": {
+              "required": ["selector", "value"],
+              "description": "Type text into an input field"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "press"
+                }
+              }
+            },
+            "then": {
+              "required": ["selector", "key"],
+              "description": "Press a key while focused on an element"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "enum": ["extract_text", "extract_html"]
+                }
+              }
+            },
+            "then": {
+              "required": ["selector", "save_as"],
+              "description": "Extract content from elements"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "extract_attr"
+                }
+              }
+            },
+            "then": {
+              "required": ["selector", "attr", "save_as"],
+              "description": "Extract specific attribute from elements"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "extract_links"
+                }
+              }
+            },
+            "then": {
+              "required": ["save_as"],
+              "description": "Extract all links from the page"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "extract_markdown"
+                }
+              }
+            },
+            "then": {
+              "required": ["save_as"],
+              "description": "Extract page content converted to markdown (boilerplate stripped by default)"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "screenshot"
+                }
+              }
+            },
+            "then": {
+              "required": ["path"],
+              "description": "Take screenshot (defaults to fullpage)"
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "do": {
+                  "const": "return"
+                }
+              }
+            },
+            "then": {
+              "required": ["data"],
+              "description": "Return extracted data (must be last action)"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "title": "Full Page Company Profiling with Stealth Mode",
+      "description": "Complete company website analysis with human-like behavior",
+      "example": {
+        "version": "1.0",
+        "meta": {
+          "task": "Complete company profiling with stealth mode",
+          "company": "Example Corp",
+          "domain": "example.com",
+          "stealth_mode": true,
+          "human_behavior": true
+        },
+        "actions": [
+          {
+            "do": "goto",
+            "url": "https://example.com"
+          },
+          {
+            "do": "wait_for",
+            "selector": "body",
+            "timeout_ms": 15000
+          },
+          {
+            "do": "screenshot_fullpage",
+            "path": "runs/screenshots/initial_page.png"
+          },
+          {
+            "do": "random_delay",
+            "delay_min": 2000,
+            "delay_max": 4000
+          },
+          {
+            "do": "scroll_progressive",
+            "scroll_count": 5,
+            "scroll_behavior": "human"
+          },
+          {
+            "do": "extract_text",
+            "selector": "body",
+            "save_as": "full_content"
+          },
+          {
+            "do": "screenshot_fullpage",
+            "path": "runs/screenshots/final_page.png"
+          },
+          {
+            "do": "return",
+            "data": ["full_content"]
+          }
+        ]
+      }
+    }
+  ]
+}
